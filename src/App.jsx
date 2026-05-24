@@ -1,145 +1,222 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
-  setGoals,
-  deleteGoal,
-} from "./features/goalsSlice";
-
-import {
+  getTasks,
   getGoals,
-  createGoal,
+  addTask,
+  addGoal,
+  removeTask,
   removeGoal,
-} from "./services/goalsService";
+} from "./api";
+
+import { setTasks } from "./redux/taskSlice";
+import { setGoals } from "./redux/goalSlice";
+
+import { useState } from "react";
 
 function App() {
   const dispatch = useDispatch();
 
-  const goals = useSelector(
-    (state) => state.goals.goals
-  );
+  const tasks = useSelector((state) => state.tasks.list);
+  const goals = useSelector((state) => state.goals.list);
+
+  const [task, setTask] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState("");
 
   const [goal, setGoal] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [goalDeadline, setGoalDeadline] = useState("");
 
   useEffect(() => {
-    loadGoals();
+    loadData();
   }, []);
 
-  const loadGoals = async () => {
-    const data = await getGoals();
-    dispatch(setGoals(data));
+  const loadData = async () => {
+    try {
+      const tasksData = await getTasks();
+      const goalsData = await getGoals();
+
+      dispatch(setTasks(tasksData));
+      dispatch(setGoals(goalsData));
+    } catch (error) {
+      console.log("Error cargando datos:", error);
+    }
   };
 
-  const handleSubmit = async (e) => {
+  // ================= TASKS =================
+
+  const handleAddTask = async (e) => {
     e.preventDefault();
 
-    const newGoal = {
-      goal,
-      deadline,
-    };
+    if (!task || !taskDeadline) {
+      alert("Completa todos los campos");
+      return;
+    }
 
-    await createGoal(newGoal);
+    try {
+      await addTask(task, taskDeadline);
 
-    loadGoals();
+      setTask("");
+      setTaskDeadline("");
 
-    setGoal("");
-    setDeadline("");
+      loadData();
+    } catch (error) {
+      console.log("Error agregando tarea:", error);
+    }
   };
 
-  const handleDelete = async (id) => {
-    await removeGoal(id);
+  const handleRemoveTask = async (id) => {
+    try {
+      await removeTask(id);
+      loadData();
+    } catch (error) {
+      console.log("Error eliminando tarea:", error);
+    }
+  };
 
-    loadGoals();
+  // ================= GOALS =================
+
+  const handleAddGoal = async (e) => {
+    e.preventDefault();
+
+    if (!goal || !goalDeadline) {
+      alert("Completa todos los campos");
+      return;
+    }
+
+    try {
+      await addGoal(goal, goalDeadline);
+
+      setGoal("");
+      setGoalDeadline("");
+
+      loadData();
+    } catch (error) {
+      console.log("Error agregando meta:", error);
+    }
+  };
+
+  const handleRemoveGoal = async (id) => {
+    try {
+      await removeGoal(id);
+      loadData();
+    } catch (error) {
+      console.log("Error eliminando meta:", error);
+    }
   };
 
   return (
-    <div
-      style={{
-        padding: "30px",
-        fontFamily: "Arial",
-        maxWidth: "600px",
-        margin: "auto",
-      }}
-    >
-      <h1>My Goals App</h1>
+    <div className="container mt-5">
+      <h1 className="text-center mb-5">To Do List</h1>
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          display: "flex",
-          gap: "10px",
-          marginBottom: "20px",
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Write your goal"
-          value={goal}
-          onChange={(e) =>
-            setGoal(e.target.value)
-          }
-          style={{
-            padding: "10px",
-            flex: 1,
-          }}
-        />
+      {/* ================= TASKS ================= */}
 
-        <input
-          type="date"
-          value={deadline}
-          onChange={(e) =>
-            setDeadline(e.target.value)
-          }
-          style={{
-            padding: "10px",
-          }}
-        />
+      <div className="card p-4 mb-5">
+        <h2 className="mb-4">Tareas</h2>
 
-        <button
-          type="submit"
-          style={{
-            padding: "10px",
-            cursor: "pointer",
-          }}
-        >
-          Add
-        </button>
-      </form>
+        <form onSubmit={handleAddTask}>
+          <input
+            type="text"
+            className="form-control mb-3"
+            placeholder="Nueva tarea"
+            value={task}
+            onChange={(e) => setTask(e.target.value)}
+          />
 
-      {goals.map((goal) => (
-        <div
-          key={goal._id}
-          style={{
-            border: "1px solid #ccc",
-            padding: "15px",
-            marginBottom: "10px",
-            borderRadius: "10px",
-          }}
-        >
-          <h3>{goal.goal}</h3>
+          <input
+            type="date"
+            className="form-control mb-3"
+            value={taskDeadline}
+            onChange={(e) => setTaskDeadline(e.target.value)}
+          />
 
-          <p>
-            Deadline: {goal.deadline}
-          </p>
-
-          <button
-            onClick={() =>
-              handleDelete(goal._id)
-            }
-            style={{
-              backgroundColor: "red",
-              color: "white",
-              border: "none",
-              padding: "8px",
-              cursor: "pointer",
-              borderRadius: "5px",
-            }}
-          >
-            Delete
+          <button className="btn btn-primary w-100">
+            Agregar tarea
           </button>
-        </div>
-      ))}
+        </form>
+
+        <hr />
+
+        {tasks.length === 0 ? (
+          <p>No hay tareas</p>
+        ) : (
+          tasks.map((taskItem) => (
+            <div
+              key={taskItem._id}
+              className="d-flex justify-content-between align-items-center border p-3 mb-2 rounded"
+            >
+              <div>
+                <strong>{taskItem.task}</strong>
+                <p className="mb-0">
+                  Fecha límite: {taskItem.deadline}
+                </p>
+              </div>
+
+              <button
+                className="btn btn-danger"
+                onClick={() => handleRemoveTask(taskItem._id)}
+              >
+                Eliminar
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ================= GOALS ================= */}
+
+      <div className="card p-4">
+        <h2 className="mb-4">Metas</h2>
+
+        <form onSubmit={handleAddGoal}>
+          <input
+            type="text"
+            className="form-control mb-3"
+            placeholder="Nueva meta"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+          />
+
+          <input
+            type="date"
+            className="form-control mb-3"
+            value={goalDeadline}
+            onChange={(e) => setGoalDeadline(e.target.value)}
+          />
+
+          <button className="btn btn-success w-100">
+            Agregar meta
+          </button>
+        </form>
+
+        <hr />
+
+        {goals.length === 0 ? (
+          <p>No hay metas</p>
+        ) : (
+          goals.map((goalItem) => (
+            <div
+              key={goalItem._id}
+              className="d-flex justify-content-between align-items-center border p-3 mb-2 rounded"
+            >
+              <div>
+                <strong>{goalItem.goal}</strong>
+
+                <p className="mb-0">
+                  Fecha límite: {goalItem.deadline}
+                </p>
+              </div>
+
+              <button
+                className="btn btn-danger"
+                onClick={() => handleRemoveGoal(goalItem._id)}
+              >
+                Eliminar
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
